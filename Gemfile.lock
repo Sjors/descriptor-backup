@@ -1,0 +1,71 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    base32 (0.3.4)
+    base64 (0.2.0)
+    bech32 (1.5.0)
+      thor (>= 1.1.0)
+    bip-schnorr (0.7.0)
+      ecdsa_ext (~> 0.5.0)
+    bitcoinrb (1.8.2)
+      base32 (>= 0.3.4)
+      base64 (~> 0.2.0)
+      bech32 (>= 1.5.0)
+      bip-schnorr (>= 0.7.0)
+      daemon-spawn
+      ecdsa_ext (~> 0.5.1)
+      eventmachine
+      eventmachine_httpserver
+      iniparse
+      leb128 (~> 1.0.0)
+      logger
+      murmurhash3 (~> 0.1.7)
+      observer (~> 0.1.2)
+      secp256k1rb (= 0.1.1)
+      siphash
+      thor
+    daemon-spawn (0.4.2)
+    ecdsa (1.2.0)
+    ecdsa_ext (0.5.1)
+      ecdsa (~> 1.2.0)
+    eventmachine (1.2.7)
+    eventmachine_httpserver (0.2.1)
+    ffi (1.17.2)
+    ffi (1.17.2-aarch64-linux-gnu)
+    ffi (1.17.2-aarch64-linux-musl)
+    ffi (1.17.2-arm-linux-gnu)
+    ffi (1.17.2-arm-linux-musl)
+    ffi (1.17.2-arm64-darwin)
+    ffi (1.17.2-x86-linux-gnu)
+    ffi (1.17.2-x86-linux-musl)
+    ffi (1.17.2-x86_64-darwin)
+    ffi (1.17.2-x86_64-linux-gnu)
+    ffi (1.17.2-x86_64-linux-musl)
+    iniparse (1.5.0)
+    leb128 (1.0.0)
+    logger (1.7.0)
+    murmurhash3 (0.1.7)
+    observer (0.1.2)
+    secp256k1rb (0.1.1)
+      ffi (>= 1.16.3)
+    siphash (0.0.1)
+    thor (1.4.0)
+
+PLATFORMS
+  aarch64-linux-gnu
+  aarch64-linux-musl
+  arm-linux-gnu
+  arm-linux-musl
+  arm64-darwin
+  ruby
+  x86-linux-gnu
+  x86-linux-musl
+  x86_64-darwin
+  x86_64-linux-gnu
+  x86_64-linux-musl
+
+DEPENDENCIES
+  bitcoinrb
+
+BUNDLED WITH
+   2.5.22
