@@ -51,21 +51,27 @@ if mode == Mode::ENCRYPT then
     pubs.sort
 
     s = Digest::SHA2.digest("BACKUP_DECRYPTION_SECRET" + pubs.join())
-    puts s.unpack("H*").first
     cipher.key = s
     nonce = OpenSSL::Random.random_bytes(12)
-    puts "nonce: #{ nonce.unpack("H*").first }"
     cipher.iv = nonce
     cipher.auth_data = ""
 
     encrypted_desc = cipher.update(descriptor) + cipher.final
 
-    for pub in pubs do
+    puts
+    puts "--------------------------- backup all of this ---------------------------"
+
+    pubs.each_with_index do |pub, i|
         s_i = Digest::SHA2.digest("BACKUP_INDIVIDUAL_SECRET" + pub)
-        puts s.bytes.zip(s_i.bytes).collect{|a,b| a ^ b}.pack("c*").unpack("H*").first
+        c_i = s.bytes.zip(s_i.bytes).collect{|a,b| a ^ b}.pack("c*").unpack("H*").first
+        puts "c_#{i + 1}:      #{ c_i }"
     end
+
+    puts "nonce:    #{ nonce.unpack("H*").first }"
     puts "auth tag: #{ cipher.auth_tag().unpack("H*").first }"
+
     puts Base64.strict_encode64(encrypted_desc)
+    puts "---------------------------------------------------------------------------"
 
     # TODO:
     # - design format that combines the encrypted payload, nonce, auth and list of c_
