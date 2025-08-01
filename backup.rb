@@ -46,6 +46,54 @@ puts ""
 
 cipher = OpenSSL::Cipher::AES.new(256, :GCM)
 
+def encode_backup(pubs, c_list, nonce, auth_tag, encrypted_desc)
+    backup = ""
+    backup << [pubs.length].pack("C")
+    c_list.each do |c_i|
+        backup << [c_i.bytesize].pack("C")
+        backup << c_i
+    end
+    backup << [nonce.bytesize].pack("C")
+    backup << nonce
+    backup << [auth_tag.bytesize].pack("C")
+    backup << auth_tag
+    backup << [encrypted_desc.bytesize].pack("N")
+    backup << encrypted_desc
+    backup
+end
+
+def decode_backup(backup)
+    offset = 0
+    num_c = backup[offset].ord
+    offset += 1
+
+    c_list = []
+    num_c.times do
+        len = backup[offset].ord
+        offset += 1
+        c_i = backup[offset, len]
+        offset += len
+        c_list << c_i
+    end
+
+    nonce_len = backup[offset].ord
+    offset += 1
+    nonce = backup[offset, nonce_len]
+    offset += nonce_len
+
+    auth_tag_len = backup[offset].ord
+    offset += 1
+    auth_tag = backup[offset, auth_tag_len]
+    offset += auth_tag_len
+
+    enc_desc_len = backup[offset, 4].unpack1("N")
+    offset += 4
+    encrypted_desc = backup[offset, enc_desc_len]
+    offset += enc_desc_len
+
+    [c_list, nonce, auth_tag, encrypted_desc]
+end
+
 if mode == Mode::ENCRYPT then
     cipher.encrypt
 
@@ -91,26 +139,14 @@ if mode == Mode::ENCRYPT then
 
     encrypted_desc = cipher.update(descriptor) + cipher.final
 
-    backup = ""
-    backup << [pubs.length].pack("C")
     c_list = []
     pubs.each_with_index do |pub, i|
         s_i = Digest::SHA2.digest("BACKUP_INDIVIDUAL_SECRET" + pub)
         c_i = xor_bytes(s, s_i)
-        backup << [c_i.bytesize].pack("C")
-        backup << c_i
         c_list << c_i
     end
 
-    backup << [nonce.bytesize].pack("C")
-    backup << nonce
-
-    auth_tag = cipher.auth_tag()
-    backup << [auth_tag.bytesize].pack("C")
-    backup << auth_tag
-
-    backup << [encrypted_desc.bytesize].pack("N")
-    backup << encrypted_desc
+    backup = encode_backup(pubs, c_list, nonce, cipher.auth_tag(), encrypted_desc)
 
     puts "The following xpubs can be used to decrypt the backup:"
     xpubs.each do |xpub|
@@ -132,34 +168,7 @@ else
 
     xpub = ARGV[1]
     backup = hex_to_bin(Bitcoin::Base58.decode(ARGV[2]))
-    offset = 0
-
-    num_c = backup[offset].ord
-    offset += 1
-
-    c_list = []
-    num_c.times do
-        len = backup[offset].ord
-        offset += 1
-        c_i = backup[offset, len]
-        offset += len
-        c_list << c_i
-    end
-
-    nonce_len = backup[offset].ord
-    offset += 1
-    nonce = backup[offset, nonce_len]
-    offset += nonce_len
-
-    auth_tag_len = backup[offset].ord
-    offset += 1
-    auth_tag = backup[offset, auth_tag_len]
-    offset += auth_tag_len
-
-    enc_desc_len = backup[offset, 4].unpack1("N")
-    offset += 4
-    encrypted_desc = backup[offset, enc_desc_len]
-    offset += enc_desc_len
+    c_list, nonce, auth_tag, encrypted_desc = decode_backup(backup)
 
     ext_pubkey = Bitcoin::ExtPubkey.from_base58(xpub)
     s = Digest::SHA2.digest("BACKUP_INDIVIDUAL_SECRET" + hex_to_bin(ext_pubkey.pub))
