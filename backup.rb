@@ -30,7 +30,7 @@ if ARGV.empty?
 
     Commands:
         decrypt xpub c1 ... nonce auth encrypted_data
-        encrypt xpub1 xpub2 xpub3 ... descriptor
+        encrypt descriptor
 
     "
     exit(1)
@@ -48,19 +48,24 @@ if mode == Mode::ENCRYPT then
     cipher.encrypt
 
     # TODO:
-    # - also support BIP388 policy and key list
-    descriptor = ARGV[-1]
-    # TODO:
-    # - get xpubs from the descriptor
     # - convert any xprv to xpub
     # - support non-xpub keys
-    xpubs = ARGV[1..-2]
+    descriptor = ARGV[1]
+
+    # TODO: this parser seems to trip up on h for hardened derivations
+    #       as well as other things. Extract manually instead.
+    # desc = Bitcoin::Descriptor.parse(descriptor)
+    # xpubs = desc.keys.map(&:origin).map(&:key).uniq
+
+    # Extract all xpubs (and tpubs, etc. if needed)
+    xpubs = descriptor.scan(/\b[xvt]pub[a-zA-Z0-9]{107,108}\b/).uniq
+
     pubs = []
-    for xpub in xpubs do
+    xpubs.each do |xpub|
         ext_pubkey = Bitcoin::ExtPubkey.from_base58(xpub)
-        pubs.append hex_to_bin(ext_pubkey.pub)
+        pubs << hex_to_bin(ext_pubkey.pub)
     end
-    pubs.sort
+    pubs.sort!
 
     s = Digest::SHA2.digest("BACKUP_DECRYPTION_SECRET" + pubs.join())
     cipher.key = s
@@ -91,7 +96,12 @@ if mode == Mode::ENCRYPT then
     backup << [encrypted_desc.bytesize].pack("N")
     backup << encrypted_desc
 
-    puts
+    puts ""
+    puts "The following xpubs can be used to decrypt the backup:"
+    xpubs.each do |xpub|
+        puts "- #{xpub}"
+    end
+    puts ""
     puts "--------------------------- your backup -----------------------------------"
     puts Bitcoin::Base58.encode(bin_to_hex(backup))
     puts "---------------------------------------------------------------------------"

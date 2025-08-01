@@ -11,7 +11,7 @@ restore the secret after a breaking change.
 ## Usage
 
 ```sh
-./backup.rb encrypt <xpub1> <xpub2> ... <descriptor>
+./backup.rb encrypt <descriptor>
 ./backup.rb decrypt <xpub> <encrypted_backup>
 ```
 
