@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 
+require 'bech32'
 require 'bitcoin'
 require 'digest'
 require 'openssl'
@@ -8,6 +9,19 @@ class Mode
     DECRYPT = 0
     ENCRYPT = 1
 end
+
+def bech32_to_bin(bech32)
+    hrp, data, encoding = Bech32.decode(bech32, bech32.length)
+    if data.nil? || hrp != "desc" || encoding != Bech32::Encoding::BECH32M
+        raise "Invalid Bech32 format"
+    end
+    Bech32.convert_bits(data, 5, 8).pack("C*")
+end
+
+def bin_to_bech32(bin)
+    Bech32.convert_bits(bin.bytes, 8, 5)
+end
+
 
 def bin_to_hex(bin)
     bin.unpack("H*").first
@@ -153,9 +167,8 @@ if mode == Mode::ENCRYPT then
     end
     puts ""
     puts "--------------------------- your backup -----------------------------------"
-    puts Bitcoin::Base58.encode(bin_to_hex(backup))
+    puts Bech32.encode("desc", bin_to_bech32(backup), Bech32::Encoding::BECH32M)
     puts "---------------------------------------------------------------------------"
-
 
 else
     cipher.decrypt
@@ -166,8 +179,9 @@ else
     end
 
     xpub = ARGV[1]
-    backup = hex_to_bin(Bitcoin::Base58.decode(ARGV[2]))
-    c_list, nonce, auth_tag, encrypted_desc = decode_backup(backup)
+
+    encrypted_backup = bech32_to_bin(ARGV[2])
+    c_list, nonce, auth_tag, encrypted_desc = decode_backup(encrypted_backup)
 
     ext_pubkey = Bitcoin::ExtPubkey.from_base58(xpub)
     s = Digest::SHA2.digest("BACKUP_INDIVIDUAL_SECRET" + hex_to_bin(ext_pubkey.pub))

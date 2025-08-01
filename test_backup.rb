@@ -12,9 +12,11 @@ encrypt_out, encrypt_err, encrypt_status = Open3.capture3(*encrypt_cmd)
 raise "Encrypt failed: #{encrypt_err}" unless encrypt_status.success?
 
 # Extract backup blob from output
-backup_blob = encrypt_out[/your backup -+\n([1-9A-HJ-NP-Za-km-z]+)\n-+/m, 1]
-raise "Failed to extract backup blob" unless backup_blob
-
+backup_blob = encrypt_out[/^desc1[^\n]*$/i]
+unless backup_blob
+  puts "DEBUG: encrypt_out was:\n#{encrypt_out}"
+  raise "Failed to extract backup blob"
+end
 # Call decrypt
 for xpub in [xpub_1, xpub_2]
   decrypt_cmd = ["ruby", "backup.rb", "decrypt", xpub, backup_blob]
