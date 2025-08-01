@@ -42,13 +42,14 @@ case ARGV[0]
     else puts("Unknown command"); exit(1)
 end
 
+puts ""
+
 cipher = OpenSSL::Cipher::AES.new(256, :GCM)
 
 if mode == Mode::ENCRYPT then
     cipher.encrypt
 
     # TODO:
-    # - convert any xprv to xpub
     # - support non-xpub keys
     descriptor = ARGV[1]
 
@@ -59,6 +60,21 @@ if mode == Mode::ENCRYPT then
 
     # Extract all xpubs (and tpubs, etc. if needed)
     xpubs = descriptor.scan(/\b[xvt]pub[a-zA-Z0-9]{107,108}\b/).uniq
+
+    # Also extract xprv/tprv, convert to xpub, and add to xpubs
+    descriptor.scan(/\b[xvt]prv[a-zA-Z0-9]{107,108}\b/).uniq.each do |xprv|
+        begin
+            ext_prv = Bitcoin::ExtKey.from_base58(xprv)
+            xpub = ext_prv.ext_pubkey.to_base58
+            unless xpubs.include?(xpub)
+                xpubs << xpub
+                puts "Converted #{xprv[0..6]}... to #{xpub[0..6]}... and added to xpubs"
+            end
+        rescue => e
+            puts "Failed to convert #{xprv[0..7]}... to xpub: #{e}"
+            exit(1)
+        end
+    end
 
     pubs = []
     xpubs.each do |xpub|
@@ -96,7 +112,6 @@ if mode == Mode::ENCRYPT then
     backup << [encrypted_desc.bytesize].pack("N")
     backup << encrypted_desc
 
-    puts ""
     puts "The following xpubs can be used to decrypt the backup:"
     xpubs.each do |xpub|
         puts "- #{xpub}"
