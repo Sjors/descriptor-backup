@@ -10,6 +10,8 @@ restore the secret after a breaking change.
 
 ## Usage
 
+```sh
 ./backup.rb
+```
 
 Follow instructions.
