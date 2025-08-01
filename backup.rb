@@ -10,6 +10,10 @@ class Mode
     ENCRYPT = 1
 end
 
+def bin_to_hex(bin)
+    bin.unpack("H*").first
+end
+
 def hex_to_bin(hex)
     [hex].pack("H*")
 end
@@ -66,41 +70,86 @@ if mode == Mode::ENCRYPT then
 
     encrypted_desc = cipher.update(descriptor) + cipher.final
 
-    puts
-    puts "--------------------------- backup all of this ---------------------------"
-
+    backup = ""
+    backup << [pubs.length].pack("C")
+    c_list = []
     pubs.each_with_index do |pub, i|
         s_i = Digest::SHA2.digest("BACKUP_INDIVIDUAL_SECRET" + pub)
-        c_i = xor_bytes(s, s_i).unpack("H*").first
-        puts "c_#{i + 1}:      #{ c_i }"
+        c_i = xor_bytes(s, s_i)
+        backup << [c_i.bytesize].pack("C")
+        backup << c_i
+        c_list << c_i
     end
 
-    puts "nonce:    #{ nonce.unpack("H*").first }"
-    puts "auth tag: #{ cipher.auth_tag().unpack("H*").first }"
+    backup << [nonce.bytesize].pack("C")
+    backup << nonce
 
-    puts Base64.strict_encode64(encrypted_desc)
+    auth_tag = cipher.auth_tag()
+    backup << [auth_tag.bytesize].pack("C")
+    backup << auth_tag
+
+    backup << [encrypted_desc.bytesize].pack("N")
+    backup << encrypted_desc
+
+    puts
+    puts "--------------------------- your backup -----------------------------------"
+    puts Bitcoin::Base58.encode(bin_to_hex(backup))
     puts "---------------------------------------------------------------------------"
 
-    # TODO:
-    # - design format that combines the encrypted payload, nonce, auth and list of c_
+
 else
     cipher.decrypt
 
+    if ARGV.length != 3
+        puts "Usage: backup.rb decrypt <xpub> <encrypted_backup>"
+        exit(1)
+    end
+
     xpub = ARGV[1]
+    backup = hex_to_bin(Bitcoin::Base58.decode(ARGV[2]))
+    offset = 0
+
+    num_c = backup[offset].ord
+    offset += 1
+
+    c_list = []
+    num_c.times do
+        len = backup[offset].ord
+        offset += 1
+        c_i = backup[offset, len]
+        offset += len
+        c_list << c_i
+    end
+
+    nonce_len = backup[offset].ord
+    offset += 1
+    nonce = backup[offset, nonce_len]
+    offset += nonce_len
+
+    auth_tag_len = backup[offset].ord
+    offset += 1
+    auth_tag = backup[offset, auth_tag_len]
+    offset += auth_tag_len
+
+    enc_desc_len = backup[offset, 4].unpack1("N")
+    offset += 4
+    encrypted_desc = backup[offset, enc_desc_len]
+    offset += enc_desc_len
+
     ext_pubkey = Bitcoin::ExtPubkey.from_base58(xpub)
     s = Digest::SHA2.digest("BACKUP_INDIVIDUAL_SECRET" + hex_to_bin(ext_pubkey.pub))
-    for share in ARGV[2..-4] do
-        c_i = hex_to_bin(share)
-        key = xor_bytes(s, c_i)
 
+    c_list.each do |c_i|
+        key = xor_bytes(s, c_i)
         cipher.key = key
-        cipher.iv = hex_to_bin(ARGV[-3])
-        cipher.auth_tag = hex_to_bin(ARGV[-2])
+        cipher.iv = nonce
+        cipher.auth_tag = auth_tag
         cipher.auth_data = ""
         begin
-            puts cipher.update(Base64.decode64(ARGV[-1])) + cipher.final
+            puts cipher.update(encrypted_desc) + cipher.final
             exit(0)
         rescue OpenSSL::Cipher::CipherError
+            # Try next c_i
         end
     end
     puts "Decryption failed"
