@@ -17,8 +17,8 @@ if ARGV.empty?
     Usage: backup.rb <command>
 
     Commands:
-        decrypt xpub c0 ... nonce auth encrypted_data
-        encrypt xpub1 xpub2 xpub3 ... [descriptor]
+        decrypt xpub c1 ... nonce auth encrypted_data
+        encrypt xpub1 xpub2 xpub3 ... descriptor
 
     "
     exit(1)
