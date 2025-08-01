@@ -10,6 +10,14 @@ class Mode
     ENCRYPT = 1
 end
 
+def hex_to_bin(hex)
+    [hex].pack("H*")
+end
+
+def xor_bytes(a, b)
+    a.bytes.zip(b.bytes).collect { |x, y| x ^ y }.pack("c*")
+end
+
 mode = nil
 
 if ARGV.empty?
@@ -46,7 +54,7 @@ if mode == Mode::ENCRYPT then
     pubs = []
     for xpub in xpubs do
         ext_pubkey = Bitcoin::ExtPubkey.from_base58(xpub)
-        pubs.append [ext_pubkey.pub].pack("H*")
+        pubs.append hex_to_bin(ext_pubkey.pub)
     end
     pubs.sort
 
@@ -63,7 +71,7 @@ if mode == Mode::ENCRYPT then
 
     pubs.each_with_index do |pub, i|
         s_i = Digest::SHA2.digest("BACKUP_INDIVIDUAL_SECRET" + pub)
-        c_i = s.bytes.zip(s_i.bytes).collect{|a,b| a ^ b}.pack("c*").unpack("H*").first
+        c_i = xor_bytes(s, s_i).unpack("H*").first
         puts "c_#{i + 1}:      #{ c_i }"
     end
 
@@ -80,21 +88,17 @@ else
 
     xpub = ARGV[1]
     ext_pubkey = Bitcoin::ExtPubkey.from_base58(xpub)
-    pub = [ext_pubkey.pub].pack("H*")
-    nonce = [ARGV[-3]].pack("H*")
-    auth_tag = [ARGV[-2]].pack("H*")
-    descriptor = Base64.decode64(ARGV[-1])
-    s = Digest::SHA2.digest("BACKUP_INDIVIDUAL_SECRET" + pub)
+    s = Digest::SHA2.digest("BACKUP_INDIVIDUAL_SECRET" + hex_to_bin(ext_pubkey.pub))
     for share in ARGV[2..-4] do
-        c_i = [share].pack("H*")
-        key = s.bytes.zip(c_i.bytes).collect{|a,b| a ^ b}.pack("c*")
+        c_i = hex_to_bin(share)
+        key = xor_bytes(s, c_i)
 
         cipher.key = key
-        cipher.iv = nonce
-        cipher.auth_tag = auth_tag
+        cipher.iv = hex_to_bin(ARGV[-3])
+        cipher.auth_tag = hex_to_bin(ARGV[-2])
         cipher.auth_data = ""
         begin
-            puts cipher.update(descriptor) + cipher.final
+            puts cipher.update(Base64.decode64(ARGV[-1])) + cipher.final
             exit(0)
         rescue OpenSSL::Cipher::CipherError
         end
